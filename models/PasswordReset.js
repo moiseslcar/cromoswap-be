@@ -2,6 +2,12 @@
 const sequelize = require('../config/database');
 
 const PasswordReset = sequelize.define('PasswordReset', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+    allowNull: false
+  },
   email: {
     type: DataTypes.STRING,
     allowNull: false
@@ -18,6 +24,9 @@ const PasswordReset = sequelize.define('PasswordReset', {
     type: DataTypes.BOOLEAN,
     defaultValue: false
   }
+}, {
+  tableName: 'PasswordResets',
+  timestamps: true
 });
 
 module.exports = PasswordReset;

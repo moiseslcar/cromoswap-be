@@ -2,6 +2,12 @@
 const sequelize = require('../config/database');
 
 const Notification = sequelize.define('Notification', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+    allowNull: false
+  },
   type: {
     type: DataTypes.STRING,
     allowNull: false
@@ -16,9 +22,15 @@ const Notification = sequelize.define('Notification', {
   },
   senderId: {
     type: DataTypes.INTEGER,
-    allowNull: true,
-    references: { model: 'Users', key: 'id' }
+    allowNull: true
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
   }
+}, {
+  tableName: 'Notifications',
+  timestamps: true
 });
 
 module.exports = Notification;

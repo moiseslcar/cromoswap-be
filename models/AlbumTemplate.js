@@ -2,6 +2,12 @@
 const sequelize = require('../config/database');
 
 const AlbumTemplate = sequelize.define('AlbumTemplate', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+    allowNull: false
+  },
   name: {
     type: DataTypes.STRING,
     allowNull: false
@@ -12,6 +18,9 @@ const AlbumTemplate = sequelize.define('AlbumTemplate', {
   tags: {
     type: DataTypes.ARRAY(DataTypes.STRING)
   }
+}, {
+  tableName: 'AlbumTemplates',
+  timestamps: true
 });
 
 module.exports = AlbumTemplate;

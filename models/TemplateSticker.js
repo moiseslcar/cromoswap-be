@@ -2,6 +2,12 @@
 const sequelize = require('../config/database');
 
 const TemplateSticker = sequelize.define('TemplateSticker', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+    allowNull: false
+  },
   order: {
     type: DataTypes.INTEGER,
     allowNull: false
@@ -15,7 +21,14 @@ const TemplateSticker = sequelize.define('TemplateSticker', {
   },
   tags: {
     type: DataTypes.ARRAY(DataTypes.STRING)
+  },
+  albumTemplateId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
   }
+}, {
+  tableName: 'TemplateStickers',
+  timestamps: true
 });
 
 module.exports = TemplateSticker;

@@ -1,7 +1,6 @@
 ﻿require('dotenv').config();
 
 module.exports = {
-
   port: process.env.PORT || 3000,
   nodeEnv: process.env.NODE_ENV || 'development',
 
@@ -17,7 +16,13 @@ module.exports = {
     password: process.env.DB_PASSWORD,
     host: process.env.DB_HOST,
     port: process.env.DB_PORT || 5432,
-    dialect: process.env.DB_DIALECT || 'postgres'
+    dialect: process.env.DB_DIALECT || 'postgres',
+    dialectOptions: {
+      ssl: process.env.DB_SSL === 'true' ? {
+        require: true,
+        rejectUnauthorized: false
+      } : false
+    }
   },
 
   email: {
@@ -27,5 +32,5 @@ module.exports = {
 
   cors: {
     origin: process.env.CORS_ORIGIN || '*'
-  }
+  },
 };

@@ -43,9 +43,6 @@ jobs:
         docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-    - name: Deploy to App Runner
-      uses: awslabs/amazon-app-runner-deploy@main
-      with:
-        service: ${{ secrets.APPRUNNER_SERVICE_ARN }}
-        region: us-east-1
-        copy-env-vars: true
+    - name: Deploy to App Runner via AWS CLI
+      run: |
+        aws apprunner start-deployment --service-arn ${{ secrets.APPRUNNER_SERVICE_ARN }} --region us-east-1

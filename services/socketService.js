@@ -22,25 +22,50 @@ const initializeSocketService = (io, jwtSecret) => {
   io.on('connection', (socket) => {
     const userId = socket.userId;
 
-    console.log(`âœ… User ${userId} connected via Socket.io`);
+    console.log(`✅ User ${userId} connected via Socket.io, Socket ID: ${socket.id}`);
     socket.join(`user_${userId}`);
+    console.log(`👤 User ${userId} joined room: user_${userId}`);
 
     socket.on('send_message', async (data) => {
       try {
+        console.log('📨 Received send_message event:', { data, socketUserId: socket.userId });
         const { receiverId, content } = data;
-        const senderId = socket.userId;
+
+        // Buscar o username do remetente pelo ID (ou já é username)
+        const { User } = require('../models');
+        const sender = await User.findOne({ where: { username: socket.userId } });
+
+        if (!sender) {
+          console.log('❌ Sender not found:', socket.userId);
+          socket.emit('error', { message: 'User not found' });
+          return;
+        }
+
+        const senderId = sender.id;
 
         if (!receiverId || !content) {
+          console.log('❌ Missing required fields:', { receiverId, content });
           socket.emit('error', { message: 'Missing required fields' });
           return;
         }
 
+        // Buscar o username do destinatário pelo ID
+        const receiver = await User.findOne({ where: { id: receiverId }, attributes: ['username'] });
+
+        if (!receiver) {
+          console.log('❌ Receiver not found:', receiverId);
+          socket.emit('error', { message: 'Receiver not found' });
+          return;
+        }
+
+        console.log('💾 Saving message to database...', { senderId, receiverId });
         const message = await Message.create({
           senderId,
           receiverId,
           content,
           seen: false
         });
+        console.log('✅ Message saved:', message.id);
 
         const messageData = {
           id: message.id,
@@ -51,9 +76,18 @@ const initializeSocketService = (io, jwtSecret) => {
           createdAt: message.createdAt
         };
 
-        io.to(`user_${receiverId}`).emit('receive_message', messageData);
+        const receiverRoom = `user_${receiver.username}`;
+        console.log('📤 Emitting to receiver room:', receiverRoom);
+
+        // Verificar quantos sockets estão no room do destinatário
+        const socketsInRoom = await io.in(receiverRoom).fetchSockets();
+        console.log(`👥 Sockets in ${receiverRoom}:`, socketsInRoom.length, 'IDs:', socketsInRoom.map(s => s.id));
+
+        io.to(receiverRoom).emit('receive_message', messageData);
+        console.log('📤 Emitting to sender');
         socket.emit('receive_message', messageData);
       } catch (error) {
+        console.error('❌ Error in send_message:', error);
         socket.emit('error', { message: 'Error sending message', details: error.message });
       }
     });

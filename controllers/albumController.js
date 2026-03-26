@@ -122,7 +122,7 @@ exports.getExternalUserAlbums = async (req, res) => {
 exports.getAlbumDetails = async (req, res) => {
   try {
     const { userAlbumId } = req.params;
-    const { page = 1, maxStickers = 100, ownership, terms } = req.query;
+    const { page = 1, maxStickers = 100, ownership, terms, categories } = req.query;
 
     const userAlbum = await UserAlbum.findOne({
       where: { id: userAlbumId },
@@ -205,6 +205,8 @@ exports.getAlbumDetails = async (req, res) => {
 
     allStickers = allStickers.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
+    const allCategoriesList = [...new Set(allStickers.map(s => s.category).filter(Boolean))];
+
     let filteredStickers = allStickers;
 
     if (ownership) {
@@ -235,15 +237,44 @@ exports.getAlbumDetails = async (req, res) => {
 
     if (terms) {
       const searchTerm = terms.toLowerCase();
+      const normalizedSearch = searchTerm.replace(/[\s\-]/g, '');
+
       filteredStickers = filteredStickers.filter(sticker => {
-        const number = sticker?.number || '';
-        const category = sticker?.category.toLowerCase() || '';
+        const number = sticker?.number != null ? sticker.number.toString() : '';
+        const category = sticker?.category ? sticker.category.toLowerCase() : '';
         const tags = sticker?.tags || [];
 
-        return number.toString().includes(searchTerm) ||
+        // Individual field matches (original behaviour)
+        if (
+          number.includes(searchTerm) ||
           category.includes(searchTerm) ||
-          tags.includes(searchTerm);
+          tags.some(tag => tag.toLowerCase().includes(searchTerm))
+        ) return true;
+
+        // Combined physical-id match: category + number, separators stripped
+        // Handles: BRA001 / BRA 001 / BRA-001 → "bra001"
+        const physicalId = (category + number).replace(/[\s\-]/g, '');
+        if (physicalId.includes(normalizedSearch)) return true;
+
+        // Also try category + number without leading zeros (BRA1 === BRA001)
+        const parsedNumber = parseInt(number, 10);
+        if (!isNaN(parsedNumber)) {
+          const physicalIdStripped = category + parsedNumber.toString();
+          if (physicalIdStripped.includes(normalizedSearch)) return true;
+        }
+
+        return false;
       });
+    }
+
+    // Filter by selected categories (if provided)
+    if (categories) {
+      const selectedCategories = categories.split(',').map(c => c.trim().toLowerCase()).filter(Boolean);
+      if (selectedCategories.length > 0) {
+        filteredStickers = filteredStickers.filter(sticker =>
+          sticker.category && selectedCategories.includes(sticker.category.toLowerCase())
+        );
+      }
     }
 
     const groupedByCategory = [];
@@ -342,6 +373,42 @@ exports.getAlbumDetails = async (req, res) => {
     const totalBatches = categoryBatches.length;
     const currentPageIndex = pageNumber - 1;
 
+    if (totalBatches === 0) {
+      const templateData = template?.toJSON() || {};
+      const signedImage = await getSignedImageUrl(templateData.image);
+
+      const totalStickers = allStickers.length;
+      const completedStickers = allStickers.filter(s => s.quantity > 0).length;
+      const percentCompleted = totalStickers > 0
+        ? Math.round((completedStickers / totalStickers) * 100)
+        : 0;
+
+      return res.status(200).json({
+        id: userAlbum.id,
+        albumTemplateId: userAlbum.albumTemplateId,
+        userId: userAlbum.userId,
+        ...templateData,
+        image: signedImage,
+        stickersList: [],
+        totalStickers,
+        totalFilteredStickers: 0,
+        percentCompleted,
+        allCategories: allCategoriesList,
+        filters: {
+          ownership: ownership || null,
+          terms: terms || null,
+          categories: categories ? categories.split(',').map(c => c.trim()).filter(Boolean) : []
+        },
+        pagination: {
+          currentPage: pageNumber,
+          totalPages: 0,
+          stickersInPage: 0,
+          maxStickersPerPage: parseInt(maxStickers),
+          categoriesInPage: []
+        }
+      });
+    }
+
     if (currentPageIndex >= totalBatches || currentPageIndex < 0) {
       return res.status(404).json({ message: 'Page not found' });
     }
@@ -370,9 +437,11 @@ exports.getAlbumDetails = async (req, res) => {
       totalStickers,
       totalFilteredStickers,
       percentCompleted,
+      allCategories: allCategoriesList,
       filters: {
         ownership: ownership || null,
-        terms: terms || null
+        terms: terms || null,
+        categories: categories ? categories.split(',').map(c => c.trim()).filter(Boolean) : []
       },
       pagination: {
         currentPage: pageNumber,
@@ -513,5 +582,32 @@ exports.batchUpdateStickers = async (req, res) => {
   } catch (error) {
     console.error('Error updating stickers:', error);
     res.status(500).json({ message: 'Error updating stickers', error });
+  }
+};
+
+exports.deleteAlbum = async (req, res) => {
+  try {
+    const { userAlbumId } = req.params;
+
+    const user = await User.findOne({ where: { username: req.userId }, attributes: ['id'] });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const userAlbum = await UserAlbum.findOne({
+      where: { id: userAlbumId, userId: user.id },
+      attributes: ['id'],
+    });
+    if (!userAlbum) {
+      return res.status(404).json({ message: 'Album not found or does not belong to user' });
+    }
+
+    await UserSticker.destroy({ where: { userAlbumId: userAlbum.id } });
+    await UserAlbum.destroy({ where: { id: userAlbum.id } });
+
+    res.status(200).json({ message: 'Album deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting album:', error);
+    res.status(500).json({ message: 'Error deleting album', error });
   }
 };

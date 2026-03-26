@@ -6,7 +6,7 @@ exports.getSummary = async (req, res) => {
   try {
     const user = await User.findOne({
       where: { username: req.userId },
-      attributes: ['id', 'username', 'email', 'countryState', 'city'],
+      attributes: ['id', 'username', 'email'],
     });
 
     if (!user) {
@@ -27,8 +27,8 @@ exports.getSummary = async (req, res) => {
   }
 };
 
-exports.updateRegion = async (req, res) => {
-  const { countryState, city } = req.body;
+exports.updateLocation = async (req, res) => {
+  const { latitude, longitude } = req.body;
 
   try {
     const user = await User.findOne({ where: { username: req.userId } });
@@ -37,16 +37,16 @@ exports.updateRegion = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    await User.update({ countryState, city }, { where: { username: req.userId } });
-    res.status(200).json({ message: 'Region updated successfully' });
+    await User.update({ latitude, longitude }, { where: { username: req.userId } });
+    res.status(200).json({ message: 'Location updated successfully' });
   } catch (error) {
-    console.error('Error updating region:', error);
-    res.status(500).json({ message: 'Error updating region', error: error.message });
+    console.error('Error updating location:', error);
+    res.status(500).json({ message: 'Error updating location', error: error.message });
   }
 };
 
 exports.updateProfile = async (req, res) => {
-  const { username, email, password, countryState, city } = req.body;
+  const { username, email, password } = req.body;
 
   try {
     const user = await User.findOne({ where: { username: req.userId } });
@@ -75,14 +75,6 @@ exports.updateProfile = async (req, res) => {
       updateData.password = bcrypt.hashSync(password, 8);
     }
 
-    if (countryState !== undefined) {
-      updateData.countryState = countryState;
-    }
-
-    if (city !== undefined) {
-      updateData.city = city;
-    }
-
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ message: 'No data provided for update' });
     }
@@ -91,7 +83,7 @@ exports.updateProfile = async (req, res) => {
 
     const updatedUser = await User.findOne({
       where: { username: req.userId },
-      attributes: ['id', 'username', 'email', 'countryState', 'city']
+      attributes: ['id', 'username', 'email']
     });
 
     res.status(200).json({
@@ -105,19 +97,46 @@ exports.updateProfile = async (req, res) => {
 };
 
 exports.getUsersByRegion = async (req, res) => {
+  const RADIUS_KM = 40;
+
   try {
     const user = await User.findOne({ where: { username: req.userId } });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const users = await User.findAll({
-      where: {
-        countryState: user.countryState,
-        city: user.city,
-        username: { [Op.ne]: req.userId }
+    if (!user.latitude || !user.longitude) {
+      return res.status(200).json([]);
+    }
+
+    // Haversine em SQL — distância em km entre coordenadas
+    const users = await User.sequelize.query(`
+      SELECT id, username,
+        ( 6371 * acos(
+            cos(radians(:lat)) * cos(radians(latitude))
+            * cos(radians(longitude) - radians(:lng))
+            + sin(radians(:lat)) * sin(radians(latitude))
+          )
+        ) AS distance
+      FROM "Users"
+      WHERE username != :username
+        AND latitude IS NOT NULL
+        AND longitude IS NOT NULL
+        AND ( 6371 * acos(
+              cos(radians(:lat)) * cos(radians(latitude))
+              * cos(radians(longitude) - radians(:lng))
+              + sin(radians(:lat)) * sin(radians(latitude))
+            )
+        ) <= :radius
+      ORDER BY distance ASC
+    `, {
+      replacements: {
+        lat: user.latitude,
+        lng: user.longitude,
+        username: req.userId,
+        radius: RADIUS_KM,
       },
-      attributes: ['id', 'username', 'countryState', 'city'],
+      type: User.sequelize.QueryTypes.SELECT,
     });
 
     const myUserAlbums = await UserAlbum.findAll({
@@ -174,7 +193,9 @@ exports.getUsersByRegion = async (req, res) => {
 
       if (youHave > 0 && youNeed > 0) {
         return {
-          ...otherUser.toJSON(),
+          id: otherUser.id,
+          username: otherUser.username,
+          distance: Math.round(otherUser.distance),
           albumsInCommon,
           youHave,
           youNeed
@@ -469,7 +490,7 @@ exports.getFollows = async (req, res) => {
 
       users = await User.findAll({
         where: { id: followerIds },
-        attributes: ['id', 'username', 'city', 'countryState']
+        attributes: ['id', 'username']
       });
 
       const myFollowings = await Follow.findAll({
@@ -496,7 +517,7 @@ exports.getFollows = async (req, res) => {
 
       users = await User.findAll({
         where: { id: followingIds },
-        attributes: ['id', 'username', 'city', 'countryState']
+        attributes: ['id', 'username']
       });
 
       const myFollowings = await Follow.findAll({

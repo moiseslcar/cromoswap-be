@@ -22,12 +22,12 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: false
   },
-  countryState: {
-    type: DataTypes.STRING,
+  latitude: {
+    type: DataTypes.FLOAT,
     allowNull: true
   },
-  city: {
-    type: DataTypes.STRING,
+  longitude: {
+    type: DataTypes.FLOAT,
     allowNull: true
   },
   refreshToken: {

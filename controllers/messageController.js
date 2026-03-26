@@ -4,6 +4,9 @@ const { Op } = require('sequelize');
 exports.getMessages = async (req, res) => {
   try {
     const { otherUserId } = req.params;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+
     let myUserId = req.userId;
     if (typeof myUserId !== 'number') {
 
@@ -15,26 +18,40 @@ exports.getMessages = async (req, res) => {
     let otherUser = null;
     if (/^\d+$/.test(otherUserId)) {
       targetUserId = Number(otherUserId);
-      otherUser = await User.findOne({ where: { id: targetUserId }, attributes: ['id', 'username', 'email', 'countryState', 'city'] });
+      otherUser = await User.findOne({ where: { id: targetUserId }, attributes: ['id', 'username', 'email'] });
     } else {
-      otherUser = await User.findOne({ where: { username: otherUserId }, attributes: ['id', 'username', 'email', 'countryState', 'city'] });
+      otherUser = await User.findOne({ where: { username: otherUserId }, attributes: ['id', 'username', 'email'] });
       targetUserId = otherUser?.id;
     }
     if (!targetUserId || !otherUser) {
       return res.status(404).json({ message: 'User not found' });
     }
+
+    const whereCondition = {
+      [Op.or]: [
+        { senderId: myUserId, receiverId: targetUserId },
+        { senderId: targetUserId, receiverId: myUserId }
+      ]
+    };
+
+    const total = await Message.count({ where: whereCondition });
+
     const messages = await Message.findAll({
-      where: {
-        [Op.or]: [
-          { senderId: myUserId, receiverId: targetUserId },
-          { senderId: targetUserId, receiverId: myUserId }
-        ]
-      },
-      order: [['createdAt', 'ASC']]
+      where: whereCondition,
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
     });
+
     res.status(200).json({
       messages,
-      otherUser
+      otherUser,
+      pagination: {
+        total,
+        limit,
+        offset,
+        hasMore: offset + messages.length < total
+      }
     });
   } catch (error) {
     console.error('Error fetching messages:', error);
@@ -116,7 +133,7 @@ exports.getLastMessages = async (req, res) => {
 
       const otherUser = await User.findOne({
         where: { id: otherUserId },
-        attributes: ['id', 'username', 'email', 'countryState', 'city']
+        attributes: ['id', 'username', 'email', 'latitude', 'longitude']
       });
 
       const unreadMessages = await Message.count({
@@ -130,6 +147,12 @@ exports.getLastMessages = async (req, res) => {
     }));
 
     const filtered = lastMessages.filter(m => m);
+
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateB - dateA;
+    });
 
     res.status(200).json(filtered);
   } catch (error) {

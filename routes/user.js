@@ -4,7 +4,7 @@ const userController = require('../controllers/userController');
 const authenticate = require('../middlewares/authenticate');
 const validate = require('../middlewares/validator');
 const {
-  updateRegionSchema,
+  updateLocationSchema,
   updateProfileSchema,
   userIdParamSchema,
   notificationSeenSchema,
@@ -12,7 +12,7 @@ const {
 } = require('../validators/schemas/user.schema');
 
 router.get('/summary', authenticate, userController.getSummary);
-router.post('/region', authenticate, validate(updateRegionSchema), userController.updateRegion);
+router.post('/update-location', authenticate, validate(updateLocationSchema), userController.updateLocation);
 router.put('/update-profile', authenticate, validate(updateProfileSchema), userController.updateProfile);
 router.get('/users/by-region', authenticate, userController.getUsersByRegion);
 router.get('/user-profile/:userId', authenticate, validate(userIdParamSchema, 'params'), userController.getUserProfile);

@@ -1,8 +1,8 @@
 ﻿const Joi = require('joi');
 
-const updateRegionSchema = Joi.object({
-  countryState: Joi.string().required(),
-  city: Joi.string().required()
+const updateLocationSchema = Joi.object({
+  latitude: Joi.number().required(),
+  longitude: Joi.number().required()
 });
 
 const updateProfileSchema = Joi.object({
@@ -12,8 +12,6 @@ const updateProfileSchema = Joi.object({
     .messages({
       'string.email': 'Email must be a valid email address'
     }),
-  countryState: Joi.string().optional().allow(''),
-  city: Joi.string().optional().allow(''),
   profilePicture: Joi.string().optional().allow('')
 }).min(1); // Pelo menos um campo deve ser fornecido
 
@@ -47,7 +45,7 @@ const deleteNotificationsSchema = Joi.object({
 });
 
 module.exports = {
-  updateRegionSchema,
+  updateLocationSchema,
   updateProfileSchema,
   userIdParamSchema,
   notificationSeenSchema,

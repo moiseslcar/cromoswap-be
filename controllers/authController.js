@@ -25,7 +25,7 @@ exports.checkUserExists = async (req, res) => {
 };
 
 exports.register = async (req, res) => {
-  const { username, email, password, countryState, city } = req.body;
+  const { username, email, password } = req.body;
 
   try {
     const user = await User.findOne({ where: { username } });
@@ -44,8 +44,6 @@ exports.register = async (req, res) => {
       username,
       email,
       password: hashedPassword,
-      countryState,
-      city
     });
 
     const token = jwt.sign({ id: newUser.username }, config.jwt.secret, { expiresIn: config.jwt.expiresIn });

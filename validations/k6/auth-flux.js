@@ -29,8 +29,6 @@ export default function () {
     username: username,
     email: email,
     password: '12345678',
-    countryState: 'SC',
-    city: 'Florianópolis',
   });
 
   const registerRes = http.post(`${BASE_URL}/register`, registerPayload, headers);

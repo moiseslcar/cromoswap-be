@@ -6,7 +6,8 @@ const albumDetailsQuerySchema = Joi.object({
   ownership: Joi.string()
     .valid('collected', 'missing', 'duplicate', 'you_need', 'you_have')
     .optional(),
-  terms: Joi.string().optional().allow('')
+  terms: Joi.string().optional().allow(''),
+  categories: Joi.string().optional().allow('')
 });
 
 const albumTemplateIdParamSchema = Joi.object({

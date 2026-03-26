@@ -27,9 +27,7 @@ const registerSchema = Joi.object({
     .required()
     .messages({
       'string.min': 'Password must be at least 8 characters long'
-    }),
-  countryState: Joi.string().optional().allow(''),
-  city: Joi.string().optional().allow('')
+    })
 });
 
 const loginSchema = Joi.object({
